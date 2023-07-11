@@ -57,17 +57,25 @@ class Vector {
         let n = Math.sqrt(this._x*this._x + this._y*this._y)
         return new Vector(this._x / n, this._y / n)
     }
+
+    equals(vector) {
+        if(!(vector instanceof Vector)) {
+            return Error("Vector should be of type Vector");
+        }
+
+        return this.getX() == vector.getX() && this.getY == vector.getY()
+    }
 }
 
 class CelestialBody {
-    constructor(mass, radius, pos = new Vector(0, 0), color = "#964B00", isFixed = false) {
+    constructor(mass, radius, pos = new Vector(0, 0), color = "#964B00") {
         this._id = Math.random();
         this._m = mass;     //mass
         this._r = radius;   //radius
         this._v = new Vector(0, 0);        //velocity
         this._a = new Vector(0, 0);        //acceleration
-        this._color = color
-        this._fixed = isFixed
+        this._color = color;
+        this._trail = [];
 
         if(!(pos instanceof Vector)) {
             return Error("Vector should be of type Vector");
@@ -85,6 +93,10 @@ class CelestialBody {
 
     getMass() {
         return this._m;
+    }
+
+    setMass(mass) {
+        this._m = mass
     }
 
     getRadius() {
@@ -125,10 +137,20 @@ class CelestialBody {
 
     setPos(x, y) {
         this._pos.setVector(x, y);
+        if(this._trail.length == 0 || !this._trail[this._trail.length - 1].equals(this._pos)) {
+            this._trail.push(new Vector(x, y));
+        }
+        if(this._trail.length > 300) {
+            this._trail.shift()
+        }
     }
 
     getColor() {
         return this._color;
+    }
+
+    getTrail() {
+        return this._trail;
     }
 
     colidesWith(c) {
@@ -162,6 +184,26 @@ class CelestialBody {
 
 }
 
+class FixedCelestialBody extends CelestialBody {
+    constructor(mass, radius, pos = new Vector(0, 0), color = "#964B00") {
+        super(mass, radius, pos, color)
+    }
+
+    gravityVector() {
+        return new Vector(0, 0);
+    }
+
+    getAcceleration() {
+        return new Vector(0, 0);
+    }
+
+    getVelocity() {
+        return new Vector(0, 0);
+    }
+}
+
+
+
 class Game {
 
     constructor () {
@@ -175,7 +217,9 @@ class Game {
 
         this._el = document.getElementById('canvas');
         this._ctx = this._el.getContext('2d');
-        this._celestials = []
+        this._celestials = [];
+        this._path = [];
+        this._iteractables = [];
 
         this._lag = [0, 0, 0];
         this._lastFrame = 0;
@@ -235,31 +279,84 @@ class Game {
                 2 * Math.PI,
                 false
             );
+
             this._ctx.fillStyle = this._celestials[c].getColor();
             this._ctx.fill();
+
+            
+            
+            let trail =  this._celestials[c].getTrail()
+            for(let t in trail) {
+                this._ctx.beginPath()
+                this._ctx.arc(
+                    trail[t].getX(),
+                    trail[t].getY(),
+                    2,
+                    2 * Math.PI,
+                    false
+                );
+                this._ctx.fillStyle = `rgba(255, 255, 255, ${(t / 100)})`;
+                this._ctx.fill();
+            }
+
+            
 
             // draw forces
             this._ctx.beginPath()
             this._ctx.strokeStyle = "#fff";
             this._ctx.moveTo(this._celestials[c].getPos().getX(), this._celestials[c].getPos().getY())
-            this._ctx.lineTo(this._celestials[c].getPos().getX() + this._celestials[c].gravityVector(...this._celestials).getX(), this._celestials[c].getPos().getY() + this._celestials[c].gravityVector(...this._celestials).getY())
+            let forceVec = this._celestials[c].getPos().add(this._celestials[c].gravityVector(...this._celestials).multiply(30))
+            this._ctx.lineTo(forceVec.getX(), forceVec.getY())
             this._ctx.stroke()
         }
     }
 
     
     iterate() {
+        if(this._running) return -1
+
         this._running = true;
 
         this._itvl = setInterval(
             () => {
+                let celestialsToDelete = []
                 let partialSecond = this.getAvgLag() / 1000;
+
+                if(this._celestials.length == 0) this.stop()
+
                 for(let c in this._celestials) {
-                    this._celestials[c].setAcceleration(this._celestials[c].gravityVector(...this._celestials))
+                    let addedAcceleration = new Vector(0, 0)
+                    //detect collisions
+                    for(let c2 in this._celestials) {
+                        if (!this._celestials[c].equals(this._celestials[c2])) {
+                            if(this._celestials[c].colidesWith(this._celestials[c2])) {
+                                if(this._celestials[c].getMass() > this._celestials[c2].getMass()) {
+                                    celestialsToDelete.push(this._celestials[c2].getId())
+                                    let a = this._celestials[c2].getVelocity().multiply(this._celestials[c2].getMass() / this._celestials[c].getMass())
+                                    addedAcceleration.setVector(a.getX(), a.getY())
+                                    this._celestials[c].setMass(this._celestials[c].getMass() + this._celestials[c2].getMass())
+                                }
+                            }
+                        }
+                    }
+
+                    // move
+                    this._celestials[c].setAcceleration(this._celestials[c].gravityVector(...this._celestials).add(addedAcceleration))
                     this._celestials[c].setVelocity(this._celestials[c].getVelocity().add(this._celestials[c].getAcceleration()))
                     let p = this._celestials[c].getPos().add(this._celestials[c].getVelocity().multiply(partialSecond))
                     this._celestials[c].setPos(p.getX(), p.getY())
                 }
+
+                const cloneCelestials = [...this._celestials]
+
+
+                // deletes engulfed celestials
+                for(let i = cloneCelestials.length - 1; i >= 0; i--) {
+                    if(celestialsToDelete.includes(cloneCelestials[i].getId())) {
+                        this._celestials.splice(i, 1);
+                    }
+                }
+
                 this.draw()
             }, 1
         )
@@ -277,13 +374,16 @@ class Game {
 
 }
 
+class Level {
+
+}
 
 let game = new Game()
 
-let c1 = new CelestialBody(25000, 10, new Vector(300, 300))
-c1.setVelocity(new Vector(60, 0))
-let c2 = new CelestialBody(400000, 20, new Vector(300, 500))
-let c3 = new CelestialBody(3000, 7, new Vector(500, 300))
+let c1 = new CelestialBody(25000, 10, new Vector(900, 300))
+c1.setVelocity(new Vector(300, 0))
+let c2 = new FixedCelestialBody(400000, 20, new Vector(600, 500), true)
+let c3 = new CelestialBody(3000, 7, new Vector(800, 300))
 c3.setVelocity(new Vector(-10, 180))
 
 
@@ -293,3 +393,12 @@ game.addCelestial(c3)
 
 game.draw()
 game.iterate()
+
+const stop = () => {
+    game.stop()
+}
+
+
+const play = () => {
+    game.iterate()
+}
