@@ -140,7 +140,7 @@ class CelestialBody {
         if(this._trail.length == 0 || !this._trail[this._trail.length - 1].equals(this._pos)) {
             this._trail.push(new Vector(x, y));
         }
-        if(this._trail.length > 300) {
+        if(this._trail.length > 100) {
             this._trail.shift()
         }
     }
@@ -185,7 +185,7 @@ class CelestialBody {
 }
 
 class FixedCelestialBody extends CelestialBody {
-    constructor(mass, radius, pos = new Vector(0, 0), color = "#964B00") {
+    constructor(mass, radius, pos = new Vector(0, 0), color) {
         super(mass, radius, pos, color)
     }
 
@@ -199,6 +199,10 @@ class FixedCelestialBody extends CelestialBody {
 
     getVelocity() {
         return new Vector(0, 0);
+    }
+
+    setPos(x, y) {
+        this._pos.setVector(x, y);
     }
 }
 
@@ -270,21 +274,8 @@ class Game {
         this._ctx.fillStyle = "#FFF"
         this._ctx.fillText(`FPS: ${this.getFPS()}`, 10, 20)
         for(let c in this._celestials) {
-            // draw celestial
-            this._ctx.beginPath();
-            this._ctx.arc(
-                this._celestials[c].getPos().getX(),
-                this._celestials[c].getPos().getY(),
-                this._celestials[c].getRadius(),
-                2 * Math.PI,
-                false
-            );
-
-            this._ctx.fillStyle = this._celestials[c].getColor();
-            this._ctx.fill();
-
             
-            
+            // draw trail
             let trail =  this._celestials[c].getTrail()
             for(let t in trail) {
                 this._ctx.beginPath()
@@ -297,8 +288,23 @@ class Game {
                 );
                 this._ctx.fillStyle = `rgba(255, 255, 255, ${(t / 100)})`;
                 this._ctx.fill();
+                this._ctx.closePath()
             }
 
+
+            // draw celestial
+            this._ctx.beginPath();
+            this._ctx.arc(
+                this._celestials[c].getPos().getX(),
+                this._celestials[c].getPos().getY(),
+                this._celestials[c].getRadius(),
+                2 * Math.PI,
+                false
+            );
+
+            this._ctx.fillStyle = this._celestials[c].getColor();
+            this._ctx.fill();
+            this._ctx.closePath()
             
 
             // draw forces
@@ -308,6 +314,7 @@ class Game {
             let forceVec = this._celestials[c].getPos().add(this._celestials[c].gravityVector(...this._celestials).multiply(30))
             this._ctx.lineTo(forceVec.getX(), forceVec.getY())
             this._ctx.stroke()
+            this._ctx.closePath()
         }
     }
 
@@ -380,10 +387,10 @@ class Level {
 
 let game = new Game()
 
-let c1 = new CelestialBody(25000, 10, new Vector(900, 300))
+let c1 = new CelestialBody(25000, 10, new Vector(650, 450))
 c1.setVelocity(new Vector(300, 0))
-let c2 = new FixedCelestialBody(400000, 20, new Vector(600, 500), true)
-let c3 = new CelestialBody(3000, 7, new Vector(800, 300))
+let c2 = new FixedCelestialBody(400000, 20, new Vector(600, 500))
+let c3 = new CelestialBody(3000, 7, new Vector(800, 500))
 c3.setVelocity(new Vector(-10, 180))
 
 
