@@ -137,7 +137,9 @@ class CelestialBody {
 
     setPos(x, y) {
         this._pos.setVector(x, y);
-        if(this._trail.length == 0 || !this._trail[this._trail.length - 1].equals(this._pos)) {
+        
+        
+        if(this._trail.length == 0 || (!this._trail[this._trail.length - 1].equals(this._pos) && this._trail[this._trail.length - 1].distanceFrom(this._pos) > 2)) {
             this._trail.push(new Vector(x, y));
         }
         if(this._trail.length > 100) {
@@ -308,13 +310,13 @@ class Game {
             
 
             // draw forces
-            this._ctx.beginPath()
-            this._ctx.strokeStyle = "#fff";
-            this._ctx.moveTo(this._celestials[c].getPos().getX(), this._celestials[c].getPos().getY())
-            let forceVec = this._celestials[c].getPos().add(this._celestials[c].gravityVector(...this._celestials).multiply(30))
-            this._ctx.lineTo(forceVec.getX(), forceVec.getY())
-            this._ctx.stroke()
-            this._ctx.closePath()
+            // this._ctx.beginPath()
+            // this._ctx.strokeStyle = "#fff";
+            // this._ctx.moveTo(this._celestials[c].getPos().getX(), this._celestials[c].getPos().getY())
+            // let forceVec = this._celestials[c].getPos().add(this._celestials[c].gravityVector(...this._celestials).multiply(30))
+            // this._ctx.lineTo(forceVec.getX(), forceVec.getY())
+            // this._ctx.stroke()
+            // this._ctx.closePath()
         }
     }
 
